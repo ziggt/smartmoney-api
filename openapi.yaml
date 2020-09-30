@@ -1,0 +1,371 @@
+openapi: 3.0.1
+info:
+  version: 0.0.1
+  title: Kela Smart Money api
+# during dev, should point to your local machine
+#host: localhost:10010
+# basePath prefixes all resource paths 
+#basePath: /
+# 
+servers:
+  - url: https://localhost:10010/v2
+  - url: http://localhost:10010/v2
+#schemes:
+# tip: remove http to make production-grade
+#  - http
+#  - https
+# format of bodies a client can send (Content-Type)
+# format of the responses to the client (Accepts)
+paths:
+  /reimbursementStatus:
+    x-swagger-router-controller: reimburse
+    get:
+      tags:
+        - reimbursementStatus
+      summary: Request for report the result of reimbursement
+      description: Returns a report of reimbursements of each requested user account
+      parameters:
+      - name: therapists
+        in: query 
+        description: Therapists with reimbursement requests
+        explode: true
+        style: form
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ssn'
+      - name: customers
+        in: query 
+        description: Customers in reimbursement requests
+        explode: true
+        style: form
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ssn'
+      - name: dateRange
+        description: Reimbursement report date range
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/DateRange'
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReimbursementStatusResponse'
+        # responses may fall through to errors
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /reimburse:
+      x-swagger-router-controller: reimburse
+      post:
+        operationId: reimburse
+        tags:
+        - reimburse
+        description: Request reimbursement
+        # used as the method name of the controller
+        requestBody:
+          required: true
+          description: Parties involved with the decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReimbursementRequest'
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ReimbursementResponse'
+          # responses may fall through to errors
+          default:
+            description: Error
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+  /decisions:
+    # binds a127 app logic to a route
+    x-swagger-router-controller: decision
+    get:
+      operationId: decisions
+      description: Returns decision information
+      # used as the method name of the controller
+      parameters:
+      - in: query
+        name: parties
+        description: Parties involved with the decision
+        schema:
+          type: object
+          anyOf:
+            - required: [clientId]
+            - required: [therapistId]
+          properties:
+            clientId:
+              type: string
+            therapistId:
+              type: string
+            activeOnly: 
+              type: boolean
+              default: true
+            dateRange:
+              $ref: '#/components/schemas/DateRange'
+          additionalProperties: false
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TherapyDecision'
+        # responses may fall through to errors
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /decision:
+    # binds a127 app logic to a route
+    x-swagger-router-controller: decision
+    get:
+      operationId: decision
+      description: Returns decision information
+      # used as the method name of the controller
+      parameters:
+      - in: query
+        name: parties
+        description: Parties involved with the decision
+        schema:
+          type: object
+          required:
+            - clientId
+            - therapistId
+          properties:
+            clientId:
+              type: string
+            therapistId:
+              type: string
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+              # returns status 200, with empty content if not found
+                $ref: '#/components/schemas/TherapyDecision'
+        # responses may fall through to errors
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /account:
+    x-swagger-router-controller: account
+    get:
+      operationId: account
+      description: create a new account
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAccountResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /account/{accountId}:
+    x-swagger-router-controller: account
+    get:
+      operationId: balance
+      summary: retrieve account balance
+      parameters:
+      - in: path
+        name: accountId
+        description: Account identifier
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountData'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /swagger:
+    x-swagger-pipe: swagger_raw
+components:
+  schemas:
+    AccountData:
+      type: object
+      required:
+        - balance
+        - tokenType
+        - tokenValue
+      properties:
+        balance:
+          type: number
+          format: integer
+          multipleOf: 1
+        tokenType:
+          type: string
+        # additional info to prestudy
+        tokenValue:
+          type: number
+          format: double
+          multipleOf: 0.01
+        personalId:
+          $ref: '#/components/schemas/Ssn'
+        created:
+          $ref: '#/components/schemas/DateTime'
+    TransactionRelation:
+      type: object
+      required:
+        - recipientId
+        - payerId
+      properties:
+        recipientId:
+          type: string
+        payerId:
+          type: string
+    #ReimbursementRequest: tuleeko tahan myos tieto tuntihinnasta?
+    ReimbursementRequest:
+      type: object
+      required:
+        - dateRange
+      properties:
+        dateRange:
+          $ref: '#/components/schemas/DateRange'
+        transactionRelations:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionRelation'
+    ReimbursementStatusResponse:
+      type: object
+      properties:
+        #optional info
+        message:
+          type: string
+        # total requested amount in euros
+        count:
+          type: integer
+        reimbursementReport:
+          type: object
+          required:
+            - amount
+            - decisions
+          properties:
+            # total requested amount in euros
+            amount:
+              type: integer
+            # total count of payments under dispute resolution
+            disputedPaymentCount:
+              type: integer
+            # total amount under disputes in euros
+            disputedAmount:
+              type: integer
+            decisions:
+              type: array
+              items:
+                type: object
+                properties:
+                  decisionId:
+                    type: string
+    ReimbursementResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        returnCode:
+          type: string
+        count:
+          type: integer
+        failCount:
+          type: integer
+    ErrorResponse:
+      #errorCode tai message pakollinen
+      required:
+      - status
+      - errorCodes
+      - message
+      properties:
+        status:
+          type: integer
+        errorCodes:
+          type: array
+          items:
+            type: string
+        message:
+          type: string
+        #can be replaced by error code
+        decisionActive:
+          type: boolean
+    CreateAccountResponse:
+      required:
+        - accountId
+      properties:
+        status:
+          type: string
+        accountId:
+          type: string
+    TherapyDecision:
+      type: object
+      required:
+      - therapistId
+      - decisionId
+      - tokenCount
+      properties:
+        therapistId:
+          type: object
+        clientId:
+          type: string
+        decisionId:
+          type: string
+        tokenCount:
+          type: integer
+        therapyType: 
+          type: string
+        active:
+          type: boolean
+    Ssn:
+      type: string
+      pattern: '^\d{6}[A-]\d{3}[a-zA-Z0-9]$'
+    DateRange:
+      type: object
+      required:
+      - startDate
+      - endDate
+      properties:
+        startDate:
+          $ref: '#/components/schemas/Date'
+        endDate:
+          $ref: '#/components/schemas/Date'
+    Date: 
+      type: string
+      format: date
+    DateTime: 
+      type: string
+      format: datetime
