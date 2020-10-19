@@ -344,12 +344,14 @@ components:
           type: string
         decisionId:
           type: string
-        tokenCount:
+        therapySessionCount:
           type: integer
         therapyType: 
           type: string
         active:
           type: boolean
+        dateRange:
+          $ref: '#/components/schemas/DateRange'
     Ssn:
       type: string
       pattern: '^\d{6}[A-]\d{3}[a-zA-Z0-9]$'
