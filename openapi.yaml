@@ -155,7 +155,6 @@ paths:
               default: true
             dateRange:
               $ref: '#/components/schemas/DateRange'
-          additionalProperties: false
       responses:
         200:
           description: Success
