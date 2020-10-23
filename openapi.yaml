@@ -435,7 +435,7 @@ components:
           $ref: '#/components/schemas/Identifier'
         status:
           type: string
-          enum: [initial, reserved, paymentRequested, settled, disputed, altered, canceled]
+          enum: [initial, reserved, paymentRequested, settled, reimbursed, disputed, altered, canceled]
     Therapist:
       type: object
       required:
