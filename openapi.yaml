@@ -6,7 +6,6 @@ info:
 #host: localhost:10010
 # basePath prefixes all resource paths 
 #basePath: /
-# 
 servers:
   - url: https://localhost:10010/v2
   - url: http://localhost:10010/v2
@@ -17,52 +16,6 @@ servers:
 # format of bodies a client can send (Content-Type)
 # format of the responses to the client (Accepts)
 paths:
-  /reimbursementStatus:
-    x-swagger-router-controller: reimburse
-    get:
-      tags:
-        - reimbursementStatus
-      summary: Request for report the result of reimbursement
-      description: Returns a report of reimbursements of each requested user account
-      parameters:
-      - name: therapists
-        in: query 
-        description: Therapists with reimbursement requests
-        explode: true
-        style: form
-        schema:
-          type: array
-          items:
-            $ref: '#/components/schemas/Ssn'
-      - name: customers
-        in: query 
-        description: Customers in reimbursement requests
-        explode: true
-        style: form
-        schema:
-          type: array
-          items:
-            $ref: '#/components/schemas/Ssn'
-      - name: dateRange
-        description: Reimbursement report date range
-        in: query
-        required: true
-        schema:
-          $ref: '#/components/schemas/DateRange'
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReimbursementStatusResponse'
-        # responses may fall through to errors
-        default:
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /reimburse:
       x-swagger-router-controller: reimburse
       post:
@@ -92,6 +45,90 @@ paths:
               application/json:
                 schema:
                   $ref: '#/components/schemas/ErrorResponse'
+  /reimbursementStatus:
+    x-swagger-router-controller: reimburse
+    get:
+      tags:
+        - reimbursementStatus
+      summary: Request for report the result of reimbursement
+      description: Returns a report of reimbursements of each requested user account
+      parameters:
+      - name: therapists
+        in: query 
+        description: Therapists with reimbursement requests
+        explode: true
+        style: form
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ssn'
+      - name: clients
+        in: query 
+        description: Clients in reimbursement requests
+        explode: true
+        style: form
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ssn'
+      - name: dateRange
+        description: Reimbursement report date range
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/DateRange'
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReimbursementStatusResponse'
+        # responses may fall through to errors
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /decision:
+    # binds a127 app logic to a route
+    x-swagger-router-controller: decision
+    get:
+      operationId: decision
+      description: Returns decision information
+      # used as the method name of the controller
+      parameters:
+      - in: query
+        name: parties
+        description: Parties involved with the decision
+        schema:
+          type: object
+          anyOf:
+          - required: [decisionId]
+          - required: [threrapyRelation]
+          properties:
+            decisionId:
+              $ref: '#/components/schemas/Identifier'
+            threrapyRelation:
+              $ref: '#/components/schemas/TherapyRelation'
+            dateTime:
+              $ref: '#/components/schemas/DateTime'
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+              # returns status 200, with empty content if not found
+                $ref: '#/components/schemas/TherapyDecision'
+        # responses may fall through to errors
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /decisions:
     # binds a127 app logic to a route
     x-swagger-router-controller: decision
@@ -106,8 +143,8 @@ paths:
         schema:
           type: object
           anyOf:
-            - required: [clientId]
-            - required: [therapistId]
+          - required: [clientId]
+          - required: [therapistId]
           properties:
             clientId:
               type: string
@@ -135,42 +172,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /decision:
-    # binds a127 app logic to a route
-    x-swagger-router-controller: decision
-    get:
-      operationId: decision
-      description: Returns decision information
-      # used as the method name of the controller
-      parameters:
-      - in: query
-        name: parties
-        description: Parties involved with the decision
-        schema:
-          type: object
-          required:
-            - clientId
-            - therapistId
-          properties:
-            clientId:
-              type: string
-            therapistId:
-              type: string
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-              # returns status 200, with empty content if not found
-                $ref: '#/components/schemas/TherapyDecision'
-        # responses may fall through to errors
-        default:
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /account:
     x-swagger-router-controller: account
     get:
@@ -189,6 +190,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    post: 
+      operationId: getAccount
+      description: find account by personalId and therapy type
+      requestBody:
+        required: true
+        description: Parties involved with the decision
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountRequest'
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountData'
+        # responses may fall through to errors
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /account/{accountId}:
     x-swagger-router-controller: account
     get:
@@ -200,8 +225,7 @@ paths:
         description: Account identifier
         required: true
         schema:
-          type: string
-          format: uuid
+          $ref: '#/components/schemas/Identifier'
       responses:
         200:
           description: Success
@@ -215,10 +239,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /person/{accountId}:
+    x-swagger-router-controller: person
+    get:
+      operationId: person
+      summary: retrieve personal data by account id
+      parameters:
+      - in: path
+        name: accountId
+        description: Account identifier
+        required: true
+        schema:
+          $ref: '#/components/schemas/Identifier'
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonData'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /swagger:
     x-swagger-pipe: swagger_raw
 components:
   schemas:
+    AccountRequest:
+      type: object
+      required:
+      - personalId
+      - benefitType
+      properties:
+        personalId:
+          $ref: '#/components/schemas/Ssn'
+        benefitType:
+          type: string
+          enum: [PSY]
     AccountData:
       type: object
       required:
@@ -241,17 +301,6 @@ components:
           $ref: '#/components/schemas/Ssn'
         created:
           $ref: '#/components/schemas/DateTime'
-    TransactionRelation:
-      type: object
-      required:
-        - recipientId
-        - payerId
-      properties:
-        recipientId:
-          type: string
-        payerId:
-          type: string
-    #ReimbursementRequest: tuleeko tahan myos tieto tuntihinnasta?
     ReimbursementRequest:
       type: object
       required:
@@ -259,52 +308,57 @@ components:
       properties:
         dateRange:
           $ref: '#/components/schemas/DateRange'
-        transactionRelations:
+        therapists:
           type: array
           items:
-            $ref: '#/components/schemas/TransactionRelation'
-    ReimbursementStatusResponse:
-      type: object
-      properties:
-        #optional info
-        message:
-          type: string
-        # total requested amount in euros
-        count:
-          type: integer
-        reimbursementReport:
-          type: object
-          required:
-            - amount
-            - decisions
-          properties:
-            # total requested amount in euros
-            amount:
-              type: integer
-            # total count of payments under dispute resolution
-            disputedPaymentCount:
-              type: integer
-            # total amount under disputes in euros
-            disputedAmount:
-              type: integer
-            decisions:
-              type: array
-              items:
-                type: object
-                properties:
-                  decisionId:
-                    type: string
+            $ref: '#/components/schemas/TherapistRequestListItem'
     ReimbursementResponse:
       type: object
+      required:
+      - returnCode
+      - reimbursedPaymentcount
+      - failedPaymentCount
       properties:
+        #optional info, warning or error
         message:
           type: string
         returnCode:
           type: string
-        count:
+        reimbursedPaymentcount:
           type: integer
-        failCount:
+        failedPaymentCount:
           type: integer
+    ReimbursementStatusResponse:
+      type: object
+      required:
+      - reimbursedPaymentcount
+      - reimbursedAmount
+      - disputedPaymentCount
+      - disputedAmount
+      - therapists
+      properties:
+        message:
+          type: string
+        # total count of successful reimbursements
+        reimbursedPaymentcount:
+          type: integer
+        # total requested amount in euros
+        reimbursedAmount:
+          type: number
+          format: double
+          multipleOf: 0.01
+        # total count of payments under dispute resolution
+        disputedPaymentCount:
+          type: integer
+        # total amount under disputes in euros
+        disputedAmount:
+          type: number
+          format: double
+          multipleOf: 0.01
+        therapists:
+          type: array
+          items:
+            $ref: '#/components/schemas/TherapistListItem'
     ErrorResponse:
       #errorCode tai message pakollinen
       required:
@@ -334,27 +388,164 @@ components:
     TherapyDecision:
       type: object
       required:
-      - therapistId
+      - therapyRelation
       - decisionId
-      - tokenCount
+      - therapySessionsAvailable
       properties:
-        therapistId:
-          type: object
-        clientId:
-          type: string
-        decisionId:
-          type: string
-        therapySessionCount:
+        therapyRelation:
+          $ref: '#/components/schemas/TherapyRelation'
+        therapySessionsAvailable:
           type: integer
         therapyType: 
           type: string
         active:
           type: boolean
-        dateRange:
+        validTime:
           $ref: '#/components/schemas/DateRange'
+    TherapyRelation:
+      type: object
+      required:
+      - therapistId
+      - clientId
+      properties:
+        therapistId:
+          $ref: '#/components/schemas/Ssn'
+        clientId:
+          $ref: '#/components/schemas/Ssn'
+    TherapySession:
+      description: A session to be reimbursed, status is consequential except disputed can be altered and re-settled or cancelled
+      type: object
+      required:
+      - therapyType
+      - start
+      - hours
+      properties:
+        decisionId:
+          $ref: '#/components/schemas/Identifier'
+        therapyType: 
+          type: string
+          enum: [Y, P, R, X]
+        start:
+          $ref: '#/components/schemas/DateTime'
+        hours:
+          type: integer
+          minimum: 1
+          maximum: 2
+        paymentRequestId:
+          $ref: '#/components/schemas/Identifier'
+        status:
+          type: string
+          enum: [initial, reserved, paymentRequested, settled, disputed, altered, canceled]
+    Therapist:
+      type: object
+      required:
+      - personalId
+      - name
+      - businessId
+      - hourRate
+      - therapyTypes
+      properties:
+        personalId:
+          $ref: '#/components/schemas/Ssn'
+        name:
+          type: string
+        businessId:
+          $ref: '#/components/schemas/BusinessId'
+        agency:
+          $ref: '#/components/schemas/Agency'
+        hourRate:
+          type: number
+          format: double
+          multipleOf: 0.01
+        therapyTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TherapyType'
+    PersonData:
+      type: object
+      required:
+      - personalId
+      - name
+      properties:
+        personalId:
+          $ref: '#/components/schemas/Ssn'
+        name:
+          type: string
+        role:
+          type: string
+          enum: [client, therapist]
+    TherapistRequestListItem:
+      type: object
+      required:
+      - therapistId
+      properties:
+        terapistId:
+          $ref: '#/components/schemas/Ssn'
+        clients:
+          type: array
+          items:
+            $ref: '#/components/schemas/TherapyClientRequestListItem'
+    TherapistListItem:
+      type: object
+      required:
+      - therapist
+      - clients
+      properties:
+        terapist:
+          $ref: '#/components/schemas/Therapist'
+        clients:
+          type: array
+          items:
+            $ref: '#/components/schemas/TherapyClientListItem'
+    TherapyClient:
+      type: object
+      required:
+      - personData
+      properties:
+        PersonData:
+          $ref: '#/components/schemas/PersonData'
+    TherapyClientRequestListItem:
+      type: object
+      required:
+      - personalId
+      properties:
+        personalId:
+          $ref: '#/components/schemas/Ssn'
+        therapySessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TherapySession'
+    TherapyClientListItem:
+      type: object
+      required:
+      - client
+      - therapySessions
+      properties:
+        client:
+          $ref: '#/components/schemas/TherapyClient'
+        therapySessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TherapySession'
+    TherapyType: 
+      type: string
+      enum: [Y, P, R, X]
+    Agency:
+      type: object
+      properties:
+        name:
+          type: string
+        businessId:
+          $ref: '#/components/schemas/BusinessId'
     Ssn:
       type: string
       pattern: '^\d{6}[A-]\d{3}[a-zA-Z0-9]$'
+    BusinessId:
+      type: string
+      pattern: '^[0-9]{7}\\-[0-9]{1}'
+    Identifier:
+      type: string
+      format: uuid
     DateRange:
       type: object
       required:
