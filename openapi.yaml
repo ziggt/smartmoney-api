@@ -388,10 +388,13 @@ components:
     TherapyDecision:
       type: object
       required:
+      - id
       - therapyRelation
       - decisionId
       - therapySessionsAvailable
       properties:
+        id:
+          $ref: '#/components/schemas/Identifier'
         therapyRelation:
           $ref: '#/components/schemas/TherapyRelation'
         therapySessionsAvailable:
