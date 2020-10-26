@@ -16,37 +16,66 @@ servers:
 # format of bodies a client can send (Content-Type)
 # format of the responses to the client (Accepts)
 paths:
-  /reimburse:
-      x-swagger-router-controller: reimburse
-      post:
-        operationId: reimburse
-        tags:
-        - reimburse
-        description: Request reimbursement
-        # used as the method name of the controller
-        requestBody:
-          required: true
-          description: Parties involved with the decision
+  /reimbursement:
+    x-swagger-router-controller: reimbursement
+    post:
+      operationId: reimbursement
+      tags:
+      - reimbursement
+      description: Request single reimbursement
+      # used as the method name of the controller
+      requestBody:
+        required: true
+        description: Parties involved with the decision
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReimbursementRequest'
+      responses:
+        200:
+          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReimbursementRequest'
-        responses:
-          200:
-            description: OK
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/ReimbursementResponse'
-          # responses may fall through to errors
-          default:
-            description: Error
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ReimbursementResponse'
+        # responses may fall through to errors
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /reimbursements:
+    x-swagger-router-controller: reimbursement
+    post:
+      operationId: reimbursements
+      tags:
+      - reimbursements
+      description: Request mass reimbursement
+      # used as the method name of the controller
+      requestBody:
+        required: true
+        description: Parties involved with the decision
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReimbursementsRequest'
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReimbursementsResponse'
+        # responses may fall through to errors
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /reimbursementStatus:
-    x-swagger-router-controller: reimburse
+    x-swagger-router-controller: reimbursement
     get:
       tags:
         - reimbursementStatus
@@ -303,6 +332,26 @@ components:
     ReimbursementRequest:
       type: object
       required:
+      - paymentRequestId
+      - decisionId
+      properties:
+        paymentRequestId:
+          $ref: '#/components/schemas/Identifier'
+        decisionId:
+          $ref: '#/components/schemas/Identifier'
+    ReimbursementResponse:
+      type: object
+      required:
+      - returnCode
+      properties:
+        #optional info, warning or error
+        message:
+          type: string
+        returnCode:
+          type: string
+    ReimbursementsRequest:
+      type: object
+      required:
         - dateRange
       properties:
         dateRange:
@@ -311,7 +360,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TherapistRequestListItem'
-    ReimbursementResponse:
+    ReimbursementsResponse:
       type: object
       required:
       - returnCode
@@ -531,7 +580,7 @@ components:
             $ref: '#/components/schemas/TherapySession'
     TherapyType: 
       type: string
-      enum: [Y, P, R, X]
+      enum: [Y, P, E, R, O, X]
     Agency:
       type: object
       properties:
