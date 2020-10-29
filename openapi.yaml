@@ -1,7 +1,7 @@
 openapi: 3.0.1
 info:
   version: 0.0.1
-  title: Smart Money api
+  title: Kela Smart Money api
 # during dev, should point to your local machine
 #host: localhost:10010
 # basePath prefixes all resource paths 
@@ -130,8 +130,9 @@ paths:
       # used as the method name of the controller
       parameters:
       - in: query
-        name: parties
-        description: Parties involved with the decision
+        name: params
+        explode: true
+        description: Parameter sets for decisionId and therapyRelation
         schema:
           type: object
           anyOf:
@@ -168,8 +169,9 @@ paths:
       # used as the method name of the controller
       parameters:
       - in: query
-        name: parties
-        description: Parties involved with the decision
+        name: params
+        explode: true
+        description: Either clientId of therapistId is required
         schema:
           type: object
           anyOf:
