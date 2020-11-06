@@ -477,8 +477,7 @@ components:
         decisionId:
           $ref: '#/components/schemas/Identifier'
         therapyType: 
-          type: string
-          enum: [Y, P, R, X]
+          $ref: '#/components/schemas/TherapyType'
         start:
           $ref: '#/components/schemas/DateTime'
         hours:
@@ -583,7 +582,7 @@ components:
             $ref: '#/components/schemas/TherapySession'
     TherapyType: 
       type: string
-      enum: [Y, P, E, R, O, X]
+      enum: [Y, P, E, R, M, O]
     Agency:
       type: object
       properties:
