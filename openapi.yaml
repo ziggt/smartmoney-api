@@ -441,7 +441,6 @@ components:
       required:
       - id
       - therapyRelation
-      - decisionId
       - therapySessionsAvailable
       properties:
         id:
