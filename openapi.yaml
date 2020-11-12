@@ -309,6 +309,9 @@ components:
           $ref: '#/components/schemas/Ssn'
         therapistId:
           $ref: '#/components/schemas/Ssn'
+        active:
+          type: boolean
+          default: true
     AccountData:
       type: object
       required:
@@ -329,6 +332,8 @@ components:
           multipleOf: 0.01
         personalId:
           $ref: '#/components/schemas/Ssn'
+        active:
+          type: boolean
         created:
           $ref: '#/components/schemas/DateTime'
     ReimbursementRequest:
