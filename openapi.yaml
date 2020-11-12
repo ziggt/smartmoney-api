@@ -303,13 +303,12 @@ components:
       type: object
       required:
       - personalId
-      - benefitType
+      - therapistId
       properties:
         personalId:
           $ref: '#/components/schemas/Ssn'
-        benefitType:
-          type: string
-          enum: [PSY]
+        therapistId:
+          $ref: '#/components/schemas/Ssn'
     AccountData:
       type: object
       required:
