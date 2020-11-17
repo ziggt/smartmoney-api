@@ -1,7 +1,7 @@
 openapi: 3.0.1
 info:
   version: 0.0.1
-  title: Kela Smart Money api
+  title: Smart Money api
 # during dev, should point to your local machine
 #host: localhost:10010
 # basePath prefixes all resource paths 
@@ -137,7 +137,7 @@ paths:
           type: object
           anyOf:
           - required: [decisionId]
-          - required: [threrapyRelation, dateTime]
+          - required: [threrapyRelation]
           properties:
             decisionId:
               $ref: '#/components/schemas/Identifier'
@@ -171,7 +171,7 @@ paths:
       - in: query
         name: params
         explode: true
-        description: Either clientId of therapistId is required
+        description: Either clientId or therapistId is required.
         schema:
           type: object
           anyOf:
@@ -179,9 +179,9 @@ paths:
           - required: [therapistId]
           properties:
             clientId:
-              type: string
+              $ref: '#/components/schemas/Ssn'
             therapistId:
-              type: string
+              $ref: '#/components/schemas/Ssn'
             activeOnly: 
               type: boolean
               default: true
@@ -197,6 +197,72 @@ paths:
                 items:
                   $ref: '#/components/schemas/TherapyDecision'
         # responses may fall through to errors
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /paymentRequest:
+    x-swagger-router-controller: account
+    get:
+      operationId: getPaymentRequest
+      description: Returns a paymentRequest by either therapy relation or decisionId and date
+      # used as the method name of the controller
+      parameters:
+      - in: query
+        name: params
+        description: Either paymentRequestId, decisionId or both customerId and therapistId are required in addition to sessionDate.
+        explode: true
+        schema:
+          type: object
+          anyOf:
+          - required: [paymentRequestId]
+          - required: [decisionId]
+          - required: [therapyRelation]
+          required:
+          - sessionDate
+          properties:
+            paymentRequestId:
+              $ref: '#/components/schemas/Identifier'
+            decisionId:
+              $ref: '#/components/schemas/Identifier'
+            therapyRelation:
+              $ref: '#/components/schemas/TherapyRelation'
+            sessionDate:
+              $ref: '#/components/schemas/Date'
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentRequestResponse'
+        # responses may fall through to errors
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: requestPayment
+      requestBody:
+        required: true
+        description: Request a new payment for a therapy session
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPaymentRequest'
+      responses:
+        200:
+          description: Success, paymentRequestId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
         default:
           description: Error
           content:
@@ -336,6 +402,54 @@ components:
           type: boolean
         created:
           $ref: '#/components/schemas/DateTime'
+    NewPaymentRequest:
+      description: < Request for a new payment. Optionally required decisionId or therapy type. 
+        Optional useAsReservation can be used to reserve therapy session but not request the payment yet.
+      type: object
+      anyOf:
+      - required: [decisionId]
+      - required: [therapyType]
+      required:
+      - receiverAccountId
+      - payerAccountId
+      - sessionDate
+      - sessionCount
+      properties:
+        receiverAccountId:
+          $ref: '#/components/schemas/Identifier'
+        payerAccountId:
+          $ref: '#/components/schemas/Identifier'
+        sessionDate:
+          description: The date of the session, if adter decision end, must be within 2 months of after end date.
+          $ref: '#/components/schemas/Date'
+        decisionId:
+          description: Decision identifier, optional
+          $ref: '#/components/schemas/Identifier'
+        sessionCount:
+          $ref: '#/components/schemas/SessionCount'
+        therapyType:
+          description: Therapy type code or abbreviated value
+          $ref: '#/components/schemas/TherapyType'
+        useAsReservation:
+          type: boolean
+          default: false
+    PaymentRequestResponse:
+      description: Payment request information.
+      type: object
+      required:
+      - id
+      - receiverAccountId
+      - payerAccountId
+      - therapySession
+      properties:
+        id:
+          $ref: '#/components/schemas/Identifier'
+        receiverAccountId:
+          $ref: '#/components/schemas/Identifier'
+        payerAccountId:
+          $ref: '#/components/schemas/Identifier'
+        therapySession:
+          $ref: '#/components/schemas/TherapySession'
     ReimbursementRequest:
       type: object
       required:
@@ -470,28 +584,27 @@ components:
         clientId:
           $ref: '#/components/schemas/Ssn'
     TherapySession:
-      description: A session to be reimbursed, status is consequential except disputed can be altered and re-settled or cancelled
+      description: A session to be reimbursed, status is consequential except for reimbursed and disputed which are alternative end statuses.
       type: object
       required:
+      - decisionId
       - therapyType
-      - start
-      - hours
+      - date
+      - sessionCount
       properties:
         decisionId:
           $ref: '#/components/schemas/Identifier'
         therapyType: 
           $ref: '#/components/schemas/TherapyType'
-        start:
-          $ref: '#/components/schemas/DateTime'
-        hours:
-          type: integer
-          minimum: 1
-          maximum: 2
+        date:
+          $ref: '#/components/schemas/Date'
+        sessionCount:
+          $ref: '#/components/schemas/SessionCount'
         paymentRequestId:
           $ref: '#/components/schemas/Identifier'
         status:
           type: string
-          enum: [initial, reserved, paymentRequested, settled, reimbursed, disputed, altered, canceled]
+          enum: [sessionReserved, paymentRequested, settled, reimbursed, disputed]
     Therapist:
       type: object
       required:
@@ -585,7 +698,11 @@ components:
             $ref: '#/components/schemas/TherapySession'
     TherapyType: 
       type: string
-      enum: [Y, P, E, R, M, O]
+      enum: [YKS, PAR, PER, RYH, MUS, OHJ]
+    SessionCount:
+      type: integer
+      minimum: 1
+      maximum: 2
     Agency:
       type: object
       properties:
