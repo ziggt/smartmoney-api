@@ -2,31 +2,28 @@ openapi: 3.0.1
 info:
   version: 0.0.1
   title: Smart Money api
+  description: >
+    API to process payments to service providers of benefit customers as redeemable vouchers.
+    Methods provided are for getting benefit decisions and applying and querying reimbursements for vouchers.
 # during dev, should point to your local machine
-#host: localhost:10010
-# basePath prefixes all resource paths 
-#basePath: /
 servers:
   - url: https://localhost:10010/v2
   - url: http://localhost:10010/v2
-#schemes:
-# tip: remove http to make production-grade
-#  - http
-#  - https
-# format of bodies a client can send (Content-Type)
-# format of the responses to the client (Accepts)
 paths:
   /reimbursement:
+    # binds a127 app logic to a route
     x-swagger-router-controller: reimbursement
     post:
       operationId: reimbursement
       tags:
       - reimbursement
-      description: Request single reimbursement
-      # used as the method name of the controller
+      summary: Performs single payment reimbursement
+      description: >
+        Request single reimbursement of a settled payment request.
+        Return value contains return code to indicate the type of success or error and an optional message.
       requestBody:
         required: true
-        description: Parties involved with the decision
+        description: Id and related decision id of the payment request to be reimbursed.
         content:
           application/json:
             schema:
@@ -51,11 +48,18 @@ paths:
       operationId: reimbursements
       tags:
       - reimbursements
-      description: Request mass reimbursement
-      # used as the method name of the controller
+      summary: Request mass reimbursement
+      description: >
+        Request for a multiple payments reimbursement by date 
+        or by individual therapy relations and individual sessions.
+        Response indicates successful and failed (disputed) payment counts.
+        Use reimbursementStatus to see the results of the asynchronous process.
       requestBody:
         required: true
-        description: Parties involved with the decision
+        description: >
+          Mass reimbursement by date range and optionally by a list of therapy relations
+          with either all therapy sessions of selected therapist, or all sessions of therapy relations
+          or individually given therapy sessions within therapy relations.
         content:
           application/json:
             schema:
@@ -67,7 +71,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReimbursementsResponse'
-        # responses may fall through to errors
         default:
           description: Error
           content:
@@ -80,12 +83,24 @@ paths:
       operationId: reimbursementStatus
       tags:
         - reimbursementStatus
-      summary: Request for report the result of reimbursement
-      description: Returns a report of reimbursements of each requested user account
+      summary: Request for report of payments reimbursed, disputed or waiting for a reimbursement
+      description: >
+        Returns a report of reimbursements of either all user accounts or each specified 
+        therapist and/or client.
+        The statuses are listed by therapists each containing list of clients under which the list of 
+        therapySession info with corresponding payment request id and status are contained.
+        Therapists are listed also when only clientId(s) are given and all clients are listed if only 
+        therapists are given.
       parameters:
+      - name: dateRange
+        description: Reimbursement report date range
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/DateRange'
       - name: therapists
         in: query 
-        description: Therapists with reimbursement requests
+        description: Therapist ids with reimbursement requests
         explode: true
         style: form
         schema:
@@ -94,19 +109,13 @@ paths:
             $ref: '#/components/schemas/Ssn'
       - name: clients
         in: query 
-        description: Clients in reimbursement requests
+        description: Client ids in reimbursement requests
         explode: true
         style: form
         schema:
           type: array
           items:
             $ref: '#/components/schemas/Ssn'
-      - name: dateRange
-        description: Reimbursement report date range
-        in: query
-        required: true
-        schema:
-          $ref: '#/components/schemas/DateRange'
       responses:
         200:
           description: Success
@@ -114,7 +123,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReimbursementStatusResponse'
-        # responses may fall through to errors
         default:
           description: Error
           content:
@@ -122,17 +130,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /decision:
-    # binds a127 app logic to a route
     x-swagger-router-controller: decision
     get:
       operationId: decision
-      description: Returns decision information
-      # used as the method name of the controller
+      summary: Returns decision information
+      description: >
+        Response contains the given decision's id, date range and therapy relation
+        (both therapist and client personal ids), therapy type and a value to indicate whether 
+        the decision is still active (i.e. in case of therapist change during initial decision).
+        When using therapy relation only, an active decision or empty response is returned.
+        Given date specifies that a decision containing it is returned 
+        (or empty data if no decision is found).
+        If a no longer valid decision (therapist change) and a new decision both contain the 
+        given date, active one is returned.
+        If no decision is found, an empty content with status 200 is returned.
       parameters:
       - in: query
         name: params
         explode: true
-        description: Parameter sets for decisionId and therapyRelation
+        description: >
+          Either decision id or therapy relation is mandatory as parameters.
+          Date value is to be used with therapyRelation to define a date within a decision's range.
         schema:
           type: object
           anyOf:
@@ -143,17 +161,15 @@ paths:
               $ref: '#/components/schemas/Identifier'
             threrapyRelation:
               $ref: '#/components/schemas/TherapyRelation'
-            dateTime:
-              $ref: '#/components/schemas/DateTime'
+            date:
+              $ref: '#/components/schemas/Date'
       responses:
         200:
           description: Success
           content:
             application/json:
               schema:
-              # returns status 200, with empty content if not found
                 $ref: '#/components/schemas/TherapyDecision'
-        # responses may fall through to errors
         default:
           description: Error
           content:
@@ -161,17 +177,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /decisions:
-    # binds a127 app logic to a route
     x-swagger-router-controller: decision
     get:
       operationId: decisions
-      description: Returns decision information
-      # used as the method name of the controller
+      summary: Returns all decisions of given information
+      description: >
+        Returns all decisions of give therapists and/or clients optionally limited by date range.
+        Default is returning only currently active decisions unless parameter active is false.
       parameters:
       - in: query
         name: params
         explode: true
-        description: Either clientId or therapistId is required.
+        description: >
+          Either clientId or therapistId is required. 
+          Date range optionally restricts results by returning only those decisions 
+          that are currently active and within given date range.
+          If parameter active is given with value false, all non-active decisions are included as well.
         schema:
           type: object
           anyOf:
@@ -196,7 +217,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TherapyDecision'
-        # responses may fall through to errors
         default:
           description: Error
           content:
@@ -207,21 +227,24 @@ paths:
     x-swagger-router-controller: account
     get:
       operationId: getPaymentRequest
-      description: Returns a paymentRequest by either therapy relation or decisionId and date
-      # used as the method name of the controller
+      summary: Returns a payment request
+      description: >
+        Returns a payment request by either with its direct id or therapy relation or 
+        decisionId and therapy session date.
+        If no payment request is found, an empty response with status 200 is returned.
       parameters:
       - in: query
         name: params
-        description: Either paymentRequestId, decisionId or both customerId and therapistId are required in addition to sessionDate.
+        description: >
+          Either use paymentRequestId or parameter sets of session date with either 
+          decisionId or both clientId and therapistId.
         explode: true
         schema:
           type: object
           anyOf:
           - required: [paymentRequestId]
-          - required: [decisionId]
-          - required: [therapyRelation]
-          required:
-          - sessionDate
+          - required: [decisionId, sessionDate]
+          - required: [therapyRelation, sessionDate]
           properties:
             paymentRequestId:
               $ref: '#/components/schemas/Identifier'
@@ -240,7 +263,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/PaymentRequestResponse'
-        # responses may fall through to errors
         default:
           description: Error
           content:
@@ -249,9 +271,21 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: requestPayment
+      summary: Initiates a new payment request
+      description: >
+        Returns the id of the generated payment request.
+        Mandatory parameters are account ids of payer and receiver, session date and session count, 
+        as well as either decision id or therapy type.
+        Can be used as a reservation only with corresponding boolean flag parameter.
+        Duplicate payment request for a therapy session (same date with previous) causes an error.
+        Also if there is no active decision with given parameters within previous 2 months, 
+        an error is returned.
       requestBody:
         required: true
-        description: Request a new payment for a therapy session
+        description: >
+          Request a new payment for a therapy session.
+          If the session is double-length, a single payment request with sessionCount 2 is expected.
+          If the therapy session (payment) is reserved, not yet requested, set useAsReservation to true.
         content:
           application/json:
             schema:
@@ -269,14 +303,102 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /account:
-    x-swagger-router-controller: account
-    get:
-      operationId: account
-      description: create a new account
+    put:
+      summary: Send a reserved therapy session payment request
+      description: >
+        Updates an initially reserved therapy session payment request to a regular one and 
+        sends it to the recipient. Uses the id of existing payment request.
+      operationId: requestReservedSessionPayment
+      requestBody:
+        required: true
+        description: Request a new payment for a therapy session with previously saved payment request.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Identifier'
       responses:
         200:
-          description: Success
+          description: Success, paymentRequestId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      summary: Marks the given settled paymentRequest as disputed.
+      description: >
+        Sets the state of the given payment request to disputed when it appears as failed payment
+        in reimbursement reports.
+        Currently a disputed payment request cannot be undisputed and the client and therapy agency must resolve 
+        the issue externally.
+      operationId: disputeSettledPaymentRequest
+      parameters:
+      - in: query
+        required: true
+        name: paymentRequestId
+        description: PaymentRequestId of the payment request to be disputed
+        schema:
+          $ref: '#/components/schemas/Identifier'
+      responses:
+        200:
+          description: Success, paymentRequestId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /account:
+    x-swagger-router-controller: account
+    get: 
+      operationId: getAccount
+      summary: Returns the account info by therapy relation
+      description: >
+        Returns account by personalId, therapist id and user role.
+        Can return expired accounts with parameter active set to false.
+      parameters:
+      - name: params
+        description: Parties involved in a therapy decision
+        in: query 
+        explode: true
+        schema:
+          $ref: '#/components/schemas/AccountRequest'
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountData'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createAccount
+      summary: Create a new account
+      description: Currently therapy agency account generation requires personal id.
+      requestBody:
+        required: true
+        description: Currently personal id to be linked with the account. In future some other type of id.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        200:
+          description: Success, created account id
           content:
             application/json:
               schema:
@@ -287,34 +409,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    post: 
-      operationId: getAccount
-      description: find account by personalId and therapy type
-      requestBody:
-        required: true
-        description: Parties involved with the decision
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AccountRequest'
-      responses:
-        200:
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccountData'
-        # responses may fall through to errors
-        default:
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /account/{accountId}:
     x-swagger-router-controller: account
     get:
-      operationId: balance
+      operationId: getAccountById
       summary: retrieve account balance
       parameters:
       - in: path
@@ -340,7 +438,7 @@ paths:
     x-swagger-router-controller: person
     get:
       operationId: person
-      summary: retrieve personal data by account id
+      summary: Retrieve personal data by account id
       parameters:
       - in: path
         name: accountId
@@ -365,16 +463,37 @@ paths:
     x-swagger-pipe: swagger_raw
 components:
   schemas:
+    CreateAccountRequest:
+      type: object
+      required:
+      - personalId
+      - role
+      properties:
+        personalId:
+          $ref: '#/components/schemas/Ssn'
+        role:
+          $ref: '#/components/schemas/AgencyRole'
+    CreateAccountResponse:
+      required:
+        - accountId
+      properties:
+        status:
+          type: string
+        accountId:
+          type: string
     AccountRequest:
       type: object
       required:
       - personalId
       - therapistId
+      - role
       properties:
         personalId:
           $ref: '#/components/schemas/Ssn'
         therapistId:
           $ref: '#/components/schemas/Ssn'
+        role:
+          $ref: '#/components/schemas/PersonRole'
         active:
           type: boolean
           default: true
@@ -398,13 +517,18 @@ components:
           multipleOf: 0.01
         personalId:
           $ref: '#/components/schemas/Ssn'
+        decisionId:
+          $ref: '#/components/schemas/Identifier'
         active:
           type: boolean
         created:
           $ref: '#/components/schemas/DateTime'
     NewPaymentRequest:
-      description: < Request for a new payment. Optionally required decisionId or therapy type. 
+      description: >
+        Request for a new payment. Optionally required decisionId or therapy type. 
         Optional useAsReservation can be used to reserve therapy session but not request the payment yet.
+        Session date, if after decision end, must be within 2 months of after end date.
+        Therapy type is a coded or abbreviated value
       type: object
       anyOf:
       - required: [decisionId]
@@ -420,17 +544,15 @@ components:
         payerAccountId:
           $ref: '#/components/schemas/Identifier'
         sessionDate:
-          description: The date of the session, if adter decision end, must be within 2 months of after end date.
           $ref: '#/components/schemas/Date'
         decisionId:
-          description: Decision identifier, optional
           $ref: '#/components/schemas/Identifier'
         sessionCount:
           $ref: '#/components/schemas/SessionCount'
         therapyType:
-          description: Therapy type code or abbreviated value
           $ref: '#/components/schemas/TherapyType'
         useAsReservation:
+          description: When true, sets the initial state of the request to reserved.
           type: boolean
           default: false
     PaymentRequestResponse:
@@ -482,10 +604,15 @@ components:
           items:
             $ref: '#/components/schemas/TherapistRequestListItem'
     ReimbursementsResponse:
+      description: >
+        Return code indicates the overall state of the reimbursement and must be agreed on.
+        Message can contain any info, warning or error.
+        Failed payment count indicates the amount of disputed payment requests
+        in case they were selected in the reimburse request.
       type: object
       required:
       - returnCode
-      - reimbursedPaymentcount
+      - reimbursedPaymentCount
       - failedPaymentCount
       properties:
         #optional info, warning or error
@@ -493,7 +620,7 @@ components:
           type: string
         returnCode:
           type: string
-        reimbursedPaymentcount:
+        reimbursedPaymentCount:
           type: integer
         failedPaymentCount:
           type: integer
@@ -546,14 +673,6 @@ components:
         #can be replaced by error code
         decisionActive:
           type: boolean
-    CreateAccountResponse:
-      required:
-        - accountId
-      properties:
-        status:
-          type: string
-        accountId:
-          type: string
     TherapyDecision:
       type: object
       required:
@@ -584,7 +703,9 @@ components:
         clientId:
           $ref: '#/components/schemas/Ssn'
     TherapySession:
-      description: A session to be reimbursed, status is consequential except for reimbursed and disputed which are alternative end statuses.
+      description: >
+        A session to be reimbursed, status is consequential except for reimbursed and disputed 
+        which are alternative end statuses.
       type: object
       required:
       - decisionId
@@ -641,8 +762,13 @@ components:
         name:
           type: string
         role:
-          type: string
-          enum: [client, therapist]
+          $ref: '#/components/schemas/PersonRole'
+    PersonRole:
+      type: string
+      enum: [client, therapist, agency]
+    AgencyRole:
+      type: string
+      enum: [therapist, agency]
     TherapistRequestListItem:
       type: object
       required:
@@ -734,4 +860,4 @@ components:
       format: date
     DateTime: 
       type: string
-      format: datetime
+      format: date-time
